@@ -1,83 +1,118 @@
 // routes/books.js
-
-const express = require('express');
+const express = require("express");
 const router = express.Router();
+const { check, validationResult } = require("express-validator"); // ✅ for validation
 
-// ------------------------------------
-// Task 5: Authorisation Middleware
-// ------------------------------------
+// Middleware: only allow access if logged in
 const redirectLogin = (req, res, next) => {
   if (!req.session || !req.session.userId) {
-    return res.redirect('../users/login'); 
+    return res.redirect("/users/login");
   }
   next();
 };
 
-// ------------------------------------
-// LIST ALL BOOKS  (Protected Route)
-// ------------------------------------
-router.get('/list', redirectLogin, (req, res) => {
+
+router.get("/list", redirectLogin, (req, res, next) => {
   const sqlquery = "SELECT * FROM books";
 
   db.query(sqlquery, (err, result) => {
     if (err) {
-      console.error("Database error:", err);
-      return res.send("Database error");
+      return next(err);
     }
-
     res.render("list.ejs", { availableBooks: result });
   });
 });
 
-// ------------------------------------
-// SHOW ADD BOOK PAGE (Protected)
-// ------------------------------------
-router.get('/addbook', redirectLogin, (req, res) => {
-  res.render("addbook.ejs");
+
+router.get("/addbook", redirectLogin, (req, res) => {
+  // send empty errors and blank default values
+  res.render("addbook.ejs", { errors: [], old: {} });
 });
 
-// ------------------------------------
-// HANDLE ADD BOOK FORM (Protected)
-// ------------------------------------
-router.post('/bookadded', redirectLogin, function (req, res, next) {
-  let sqlquery = "INSERT INTO books (name, price) VALUES (?, ?)";
-  let newrecord = [req.body.name, req.body.price];
 
-  db.query(sqlquery, newrecord, (err, result) => {
-    if (err) {
-      next(err);
-    } else {
+router.post(
+  "/bookadded",
+  redirectLogin,
+  [
+    // Validate name
+    check("name")
+      .trim()
+      .notEmpty()
+      .withMessage("Book name is required"),
+
+    // Validate price
+    check("price")
+      .notEmpty()
+      .withMessage("Price is required")
+      .bail()
+      .isFloat({ min: 0 })
+      .withMessage("Price must be a number greater than or equal to 0"),
+  ],
+  (req, res, next) => {
+    const errors = validationResult(req);
+
+    // Keep raw values for redisplay
+    const oldValues = {
+      name: req.body.name,
+      price: req.body.price,
+    };
+
+    if (!errors.isEmpty()) {
+      // If validation fails, show form again with errors + old input
+      return res.render("addbook.ejs", {
+        errors: errors.array(),
+        old: oldValues,
+      });
+    }
+
+    // If validation passed, sanitise and insert into DB
+    const name = req.sanitize(req.body.name);
+    const price = parseFloat(req.body.price);
+
+    const sqlquery = "INSERT INTO books (name, price) VALUES (?, ?)";
+    const newrecord = [name, price];
+
+    db.query(sqlquery, newrecord, (err, result) => {
+      if (err) {
+        return next(err);
+      }
+
       res.send(
-        'This book has been added: <br><br>' +
-        'Name: ' + req.body.name + '<br>' +
-        'Price: ' + req.body.price + '<br><br>' +
-        '<a href="./list">Return to book list</a>'
+        "This book has been added: <br><br>" +
+          "Name: " +
+          name +
+          "<br>" +
+          "Price: " +
+          price +
+          '<br><br><a href="./list">Back to book list</a>'
       );
-    }
-  });
+    });
+  }
+);
+
+
+// SHOW SEARCH FORM (protected)
+// GET /books/search
+
+
+router.get("/search", redirectLogin, (req, res) => {
+  res.render("search.ejs");
 });
 
-// ------------------------------------
-// OPTIONAL: Book Search (If you had it before)
-// ------------------------------------
-router.get('/search', redirectLogin, (req, res) => {
-  res.render("booksearch.ejs");
-});
+router.get("/search-result", redirectLogin, (req, res, next) => {
+  let keyword = req.query.keyword || "";
+  keyword = req.sanitize(keyword);
 
-router.post('/search-result', redirectLogin, (req, res) => {
-  let keyword = req.body.keyword;
-  let sqlquery = "SELECT * FROM books WHERE name LIKE ?";
+  const sqlquery = "SELECT * FROM books WHERE name LIKE ?";
+  const searchTerm = "%" + keyword + "%";
 
-  db.query(sqlquery, ['%' + keyword + '%'], (err, result) => {
+  db.query(sqlquery, [searchTerm], (err, result) => {
     if (err) {
-      console.error(err);
-      return res.send("Search error");
+      return next(err);
     }
+
     res.render("list.ejs", { availableBooks: result });
   });
 });
 
-// ------------------------------------
-// Export router
-// ------------------------------------
 module.exports = router;

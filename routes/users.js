@@ -1,81 +1,91 @@
-// routes/users.js
+//routes/users.js
 
 const express = require("express");
 const router = express.Router();
 
+//Password hashing
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 
-// Protect routes (used for logout etc.)
+//Validation
+const { check, validationResult } = require("express-validator");
+
 const redirectLogin = (req, res, next) => {
-  if (!req.session || !req.session.userId) {
+  if (!req.session.userId) {
     return res.redirect("./login");
   }
   next();
 };
 
-// ===============================
-// SHOW REGISTRATION PAGE
-// ===============================
+//Show registration form
 router.get("/register", (req, res) => {
-  res.render("register.ejs");
+  res.render("register.ejs", { errors: [] });
 });
 
-// ===============================
-// HANDLE REGISTRATION
-// ===============================
-router.post("/registered", (req, res, next) => {
-  const plainPassword = req.body.password;
+//Handling registration form
+router.post(
+  "/registered",
+  [
+    //Email must look like an email
+    check("email").isEmail().withMessage("Please enter a valid email address"),
+    //Username 5–20 chars
+    check("username")
+      .isLength({ min: 5, max: 20 })
+      .withMessage("Username must be between 5 and 20 characters"),
+    //Password at least 8 chars
+    check("password")
+      .isLength({ min: 8 })
+      .withMessage("Password must be at least 8 characters long"),
+  ],
+  (req, res, next) => {
+    const errors = validationResult(req);
 
-  // Debug check (optional while testing)
-  console.log("Register – plainPassword:", plainPassword);
+    if (!errors.isEmpty()) {
+      //If validation fails, re-show the form
+      return res.render("register.ejs", { errors: errors.array() });
+    }
 
-  bcrypt.hash(plainPassword, saltRounds, (err, hashedPassword) => {
-    if (err) return next(err);
+    //Sanitise inputs to protect from XSS
+    const first = req.sanitize(req.body.first);
+    const last = req.sanitize(req.body.last);
+    const email = req.sanitize(req.body.email);
+    const username = req.sanitize(req.body.username);
+    const plainPassword = req.body.password; 
 
-    const sqlquery =
-      "INSERT INTO users (first, last, email, username, password) VALUES (?, ?, ?, ?, ?)";
-
-    const newUser = [
-      req.body.first,
-      req.body.last,
-      req.body.email,
-      req.body.username,
-      hashedPassword,
-    ];
-
-    db.query(sqlquery, newUser, (err, result) => {
+    //Hash the password before saving
+    bcrypt.hash(plainPassword, saltRounds, (err, hashedPassword) => {
       if (err) return next(err);
 
-      res.send(
-        "Hello " +
-          req.body.first +
-          " " +
-          req.body.last +
-          "! You are now registered. We will email you at " +
-          req.body.email +
-          '<br><br><a href="./login">Click here to log in</a>'
-      );
-    });
-  });
-});
+      const sqlquery =
+        "INSERT INTO users (first, last, email, username, password) VALUES (?, ?, ?, ?, ?)";
 
-// ===============================
-// SHOW LOGIN PAGE
-// ===============================
+      const newUser = [first, last, email, username, hashedPassword];
+
+      db.query(sqlquery, newUser, (err, result) => {
+        if (err) return next(err);
+
+        res.send(
+          "Hello " +
+            first +
+            " " +
+            last +
+            "! You are now registered. We will email you at " +
+            email
+        );
+      });
+    });
+  }
+);
+
+//Show login page
 router.get("/login", (req, res) => {
   res.render("login.ejs");
 });
 
-// ===============================
-// HANDLE LOGIN
-// ===============================
+//Login Handle
 router.post("/loggedin", (req, res, next) => {
   const username = req.body.username;
   const plainPassword = req.body.password;
-
-  console.log("Login – username:", username);
-  console.log("Login – plainPassword:", plainPassword);
 
   const sqlquery = "SELECT * FROM users WHERE username = ?";
 
@@ -88,39 +98,29 @@ router.post("/loggedin", (req, res, next) => {
 
     const user = results[0];
 
-    console.log("DB stored hash:", user.password);
-
     bcrypt.compare(plainPassword, user.password, (err, match) => {
       if (err) return next(err);
-
-      console.log("Password match?", match);
 
       if (!match) {
         return res.send("Login failed: incorrect password.");
       }
 
-      req.session.userId = user.username;
+      //Save session id
+      req.session.userId = user.id;
 
       res.send(
         "You are now logged in as " +
-          user.username +
-          '<br><a href="../books/list">Go to book list</a>'
+          username +
+          '.<br><a href="../books/list">Go to book list</a>'
       );
     });
   });
 });
 
-// ===============================
-// LOGOUT
-// ===============================
-router.get("/logout", redirectLogin, (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.redirect("./");
-    }
-    res.send(
-      "You are now logged out.<br><a href='./login'>Login again</a>"
-    );
+//Log out
+router.get("/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.redirect("../");
   });
 });
 

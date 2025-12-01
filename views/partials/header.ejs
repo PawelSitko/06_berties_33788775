@@ -1,0 +1,21 @@
+<header>
+  <h1><%= shopData ? shopData.shopName : "Bertie's Books" %></h1>
+
+  <nav>
+    <a href="/">Home</a> |
+    <a href="/about">About</a> |
+    <a href="/books/list">Book list</a> |
+    <a href="/books/addbook">Add book</a> |
+    <a href="/users/register">Register</a> |
+    <a href="/users/login">Login</a> |
+    <a href="/users/logout">Logout</a>
+  </nav>
+
+  <% if (session && session.userId) { %>
+    <p>You are logged in as: <strong><%= session.userId %></strong></p>
+  <% } else { %>
+    <p>You are not logged in.</p>
+  <% } %>
+
+  <hr>
+</header>

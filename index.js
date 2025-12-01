@@ -1,65 +1,64 @@
-// index.js
+//index.js
+require("dotenv").config();
 
-// Core modules and libraries
-var mysql = require('mysql2');
-var express = require('express');
-var ejs = require('ejs');
-const path = require('path');
-const session = require('express-session');
-
-// Create the express application
+const express = require("express");
 const app = express();
+const path = require("path");
+const session = require("express-session");
+const mysql = require("mysql2");
+const expressSanitizer = require("express-sanitizer");
+
 const port = 8000;
 
-// Set EJS as the templating engine
-app.set('view engine', 'ejs');
-
-// Parse form data from POST requests
+//1. VIEW ENGINE
+app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
+app.use(expressSanitizer());
 
-// Enable session support (Lab 8a Task 2)
-app.use(session({
-    secret: 'cookies', 
+//4. STATIC FILES
+app.use(express.static(path.join(__dirname, "public")));
+
+
+//5. SESSIONS
+app.use(
+  session({
+    secret: "change-this-secret",
     resave: false,
     saveUninitialized: false,
-    cookie: { expires: 600000 }  // session expires after 10 minutes
-}));
+  })
+);
 
-// Make session available in all EJS views as "session"
+//Make session available inside ALL EJS views
 app.use((req, res, next) => {
-    res.locals.session = req.session;
-    next();
+  res.locals.session = req.session;
+  next();
 });
 
-// Serve static files (CSS, client-side JS, images) from /public
-app.use(express.static(path.join(__dirname, 'public')));
+const db = mysql.createPool({
+  connectionLimit: 10,
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_DATABASE || "berties_books",
+});
 
-// Application-level data (available in all views as shopData)
+global.db = db;
+
+
 app.locals.shopData = { shopName: "Bertie's Books" };
 
-// Set up the MySQL connection pool
-const db = mysql.createPool({
-    host: 'localhost',
-    user: 'berties_books_app',
-    password: 'qwertyuiop',
-    database: 'berties_books',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-});
-global.db = db;  // so routes can use db directly
 
-// Load route handlers
-const mainRoutes = require('./routes/main');
-app.use('/', mainRoutes);
+//7. ROUTES
+const mainRoutes = require("./routes/main");
+app.use("/", mainRoutes);
 
-const usersRoutes = require('./routes/users');
-app.use('/users', usersRoutes);
+const userRoutes = require("./routes/users");
+app.use("/users", userRoutes);
 
-const booksRoutes = require('./routes/books');
-app.use('/books', booksRoutes);
+const booksRoutes = require("./routes/books");
+app.use("/books", booksRoutes);
 
-// Start the web server
+
 app.listen(port, () => {
-    console.log(`Example app listening on port ${port}!`);
+  console.log(`Bertie's Books app running on port ${port}`);
 });
