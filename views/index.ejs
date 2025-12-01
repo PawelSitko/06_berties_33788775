@@ -1,13 +1,41 @@
 <!doctype html>
 <html>
   <head>
-    <title>Welcome to <%=shopData.shopName%></title>
-    <link rel="stylesheet"  type="text/css" href="/main.css" />
+    <title>Bertie's Books</title>
+    <link rel="stylesheet" href="/style.css">
   </head>
+
   <body>
-    <h1>Welcome to <%=shopData.shopName%></h1>
-    <p><a href="about">About <%=shopData.shopName%></a></p>
-    <p><a href="books/search">Search for books</a></p>
-    <p><a href="users/register">Register with us</a></p>
+
+    <!-- Navigation links -->
+    <header>
+      <h1>Welcome to <%= shopData.shopName %></h1>
+
+      <!-- Simple navigation -->
+      <nav>
+        <a href="/">Home</a> |
+        <a href="/about">About</a> |
+        <a href="/books/list">Book List</a> |
+        <a href="/users/register">Register</a> |
+        <a href="/users/login">Login</a> |
+        <a href="/users/logout">Logout</a>
+      </nav>
+    </header>
+
+    <hr>
+
+    <main>
+      <h2>Your favourite online book shop</h2>
+      <p>Browse our books, register an account, and manage your reading list.</p>
+
+      <!-- Show whether the user is logged in -->
+      <% if (session && session.userId) { %>
+        <p>You are logged in as: <strong><%= session.userId %></strong></p>
+      <% } else { %>
+        <p>You are not logged in.</p>
+      <% } %>
+
+    </main>
+
   </body>
 </html>

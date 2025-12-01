@@ -1,15 +1,22 @@
 <!doctype html>
 <html>
   <head>
-    <title>Login</title>
+    <title>Login - Bertie's Books</title>
+    <link rel="stylesheet" href="/style.css">
   </head>
   <body>
     <h1>Login</h1>
 
-    <form method="POST" action="/users/loggedin">
-      <p>Username: <input type="text" name="username" required /></p>
-      <p>Password: <input type="password" name="password" required /></p>
-      <input type="submit" value="Login" />
+    <form action="/users/loggedin" method="POST">
+      <label>Username:</label><br>
+      <input type="text" name="username" required><br><br>
+
+      <label>Password:</label><br>
+      <input type="password" name="password" required><br><br>
+
+      <button type="submit">Log in</button>
     </form>
+
+    <p>Don't have an account? <a href="/users/register">Register here</a></p>
   </body>
 </html>
